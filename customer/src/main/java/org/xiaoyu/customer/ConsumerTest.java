@@ -36,12 +36,5 @@ public class ConsumerTest {
                 }
             }).start();
         }
-
-//        User user = proxy.getUserById(1);
-//        System.out.println("从服务端得到的user " + user.toString());
-//
-//        User newUser = User.builder().id(100).userName("nico").sex(true).build();
-//        Integer id = proxy.insertUser(newUser);
-//        System.out.println("向客户端插入了id为: " + id + " 的用户");
     }
 }
