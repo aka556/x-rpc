@@ -1,0 +1,5 @@
+Hessian=org.xiaoyu.common.serializer.gumiSerializer.HessianSerializer
+protobuf=org.xiaoyu.common.serializer.gumiSerializer.ProtobufSerializer
+json=org.xiaoyu.common.serializer.gumiSerializer.JsonSerializer
+kryo=org.xiaoyu.common.serializer.gumiSerializer.KryoSerializer
+jdk=org.xiaoyu.common.serializer.gumiSerializer.ObjectSerializer
