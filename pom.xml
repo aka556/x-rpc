@@ -13,7 +13,7 @@
         <module>api</module>
         <module>common</module>
         <module>core</module>
-        <module>customer</module>
+        <module>consumer</module>
         <module>provider</module>
     </modules>
 
