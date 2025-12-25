@@ -2,13 +2,13 @@ package org.xiaoyu.core.client.proxy;
 
 import org.xiaoyu.common.message.RpcRequest;
 import org.xiaoyu.common.message.RpcResponse;
-import org.xiaoyu.core.client.RpcClient.Impl.NettyRpcClient;
 import org.xiaoyu.core.client.RpcClient.RpcClient;
 import org.xiaoyu.core.client.circuitBreaker.CircuitBreakProvider;
 import org.xiaoyu.core.client.circuitBreaker.CircuitBreaker;
 import org.xiaoyu.core.client.retry.GuavaRetry;
 import org.xiaoyu.core.client.serviceCenter.ServiceCenter;
 import org.xiaoyu.core.client.serviceCenter.ZKServerCenter;
+import org.xiaoyu.core.trace.Interceptor.ClientTraceInterceptor;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -22,13 +22,15 @@ public class ClientProxy implements InvocationHandler {
     private CircuitBreakProvider circuitBreakProvider;
     public ClientProxy() throws InterruptedException {
         serviceCenter = new ZKServerCenter();
-       rpcClient = new NettyRpcClient(serviceCenter);
        circuitBreakProvider = new CircuitBreakProvider();
     }
 
     // 动态代理
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        // trace记录
+        ClientTraceInterceptor.beforeInvoke();
+
         // 构建request
         RpcRequest request = RpcRequest.builder()
                 .interfaceName(method.getDeclaringClass().getName())
@@ -60,11 +62,22 @@ public class ClientProxy implements InvocationHandler {
         if (response.getCode() == 500) {
             circuitBreaker.recordFailure();
         }
+
+        // trace上报
+        ClientTraceInterceptor.afterInvoke(method.getName());
+
         return response.getData();
     }
 
     public <T> T getProxy(Class<T> clazz) {
         Object o = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, this);
         return (T) o;
+    }
+
+    //关闭创建的资源
+    //注：如果在需要C-S保持长连接的场景下无需调用close方法
+    public void close(){
+        rpcClient.close();
+        serviceCenter.close();
     }
 }

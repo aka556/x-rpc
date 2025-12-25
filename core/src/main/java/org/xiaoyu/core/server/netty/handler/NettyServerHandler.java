@@ -4,10 +4,12 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.xiaoyu.common.message.RequestType;
 import org.xiaoyu.common.message.RpcRequest;
 import org.xiaoyu.common.message.RpcResponse;
 import org.xiaoyu.core.server.provider.ServiceProvider;
 import org.xiaoyu.core.server.rateLimit.RateLimit;
+import org.xiaoyu.core.trace.Interceptor.ServerTraceInterceptor;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -26,8 +28,21 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
             return;
         }
 
-        RpcResponse response = getResponse(request);
-        ctx.writeAndFlush(response);
+        // 心跳检测
+        if (request.getRequestType() == RequestType.HEARTBEAT) {
+            log.info("接收到来自客户端的心跳包");
+        }
+
+        if (request.getRequestType() == RequestType.NORMAL) {
+            // 记录请求
+            ServerTraceInterceptor.beforeHandle();
+
+            RpcResponse response = getResponse(request);
+
+            // 上报数据
+            ServerTraceInterceptor.afterHandle(request.getMethodName());
+            ctx.writeAndFlush(response);
+        }
         ctx.close();
     }
 

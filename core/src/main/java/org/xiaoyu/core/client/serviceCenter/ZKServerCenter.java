@@ -76,6 +76,11 @@ public class ZKServerCenter implements ServiceCenter {
         return canResty;
     }
 
+    @Override
+    public void close() {
+        client.close();
+    }
+
     /**
      * 地址获取辅助函数
      */

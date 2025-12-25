@@ -7,23 +7,29 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.AttributeKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xiaoyu.common.message.RpcRequest;
 import org.xiaoyu.common.message.RpcResponse;
+import org.xiaoyu.common.trace.TraceContext;
 import org.xiaoyu.core.client.RpcClient.RpcClient;
+import org.xiaoyu.core.client.netty.handler.MDCChannelHandler;
 import org.xiaoyu.core.client.netty.nettyInitializer.NettyClientInitializer;
 import org.xiaoyu.core.client.serviceCenter.ServiceCenter;
 import org.xiaoyu.core.client.serviceCenter.ZKServerCenter;
 
 import java.net.InetSocketAddress;
+import java.util.Map;
 
 public class NettyRpcClient implements RpcClient {
     private static final Bootstrap bootstrap; // netty用户启动客户端的对象
     private static final EventLoopGroup eventLoopGroup; // netty的线程池，用于处理I/O操作
+    private static final Logger log = LoggerFactory.getLogger(NettyRpcClient.class);
 
-    private ServiceCenter serviceCenter;
+    private final InetSocketAddress address;
 
-    public NettyRpcClient(ServiceCenter serviceCenter) throws InterruptedException {
-        this.serviceCenter = new ZKServerCenter();
+    public NettyRpcClient(InetSocketAddress address) {
+        this.address = address;
     }
 
     // 客户端初始化
@@ -37,8 +43,14 @@ public class NettyRpcClient implements RpcClient {
 
     @Override
     public RpcResponse sendRequest(RpcRequest request) {
+        Map<String, String> mdcContextMap = TraceContext.getCopy();
+
         // 从注册中心获取host地址以及port端口号
-        InetSocketAddress address = serviceCenter.serviceDiscovery(request.getInterfaceName());
+        if (address == null) {
+            log.error("服务发现失败，返回地址为null");
+            return RpcResponse.fail("服务未发现, 地址为null");
+        }
+
         String host = address.getHostName();
         int port = address.getPort();
 
@@ -47,6 +59,9 @@ public class NettyRpcClient implements RpcClient {
             ChannelFuture channelFuture = bootstrap.connect(host, port).sync();
             // channel表示一个连接的单位，类似socket
             Channel channel = channelFuture.channel();
+            // 将trace上下文保存到channel属性中
+            channel.attr(MDCChannelHandler.TRACE_CONTEXT_KEY).set(mdcContextMap);
+
             // 发送数据
             channel.writeAndFlush(request);
             // sync()同步堵塞获取结果
@@ -57,12 +72,29 @@ public class NettyRpcClient implements RpcClient {
             // 其它场景也可以选择添加监听器的方式来异步获取结果 channelFuture.addListener...
             AttributeKey<RpcResponse> key = AttributeKey.valueOf("RpcResponse");
             RpcResponse response = channel.attr(key).get();
+            if (response == null) {
+                log.error("服务调用失败，返回结果为null");
+                return RpcResponse.fail("服务响应为空");
+            }
 
-            System.out.println(response);
+            log.info("接收到的响应：{}", response);
             return response;
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            log.error("请求被中断，发送请求失败: {}", e.getMessage(), e);
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            log.error("发送请求失败: {}", e.getMessage(), e);
         }
-        return null;
+        return RpcResponse.fail("请求失败");
+    }
+
+    // 关闭客户端
+    public void close() {
+        try {
+            eventLoopGroup.shutdownGracefully().sync();
+        } catch (Exception e) {
+            log.error("关闭客户端时失败: {}", e.getMessage(), e);
+            Thread.currentThread().interrupt();
+        }
     }
 }

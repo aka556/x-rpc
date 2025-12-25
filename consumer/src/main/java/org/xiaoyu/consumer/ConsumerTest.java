@@ -1,13 +1,17 @@
-package org.xiaoyu.customer;
+package org.xiaoyu.consumer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.xiaoyu.api.pojo.User;
 import org.xiaoyu.api.service.UserService;
 import org.xiaoyu.core.client.proxy.ClientProxy;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 @Slf4j
 public class ConsumerTest {
     private static final int THREAD_POOL_SIZE = 20; // 线程池大小
+    private static final ExecutorService executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
 
     public static void main(String[] args) throws InterruptedException {
         ClientProxy clientProxy = new ClientProxy();
@@ -36,5 +40,8 @@ public class ConsumerTest {
                 }
             }).start();
         }
+
+        executorService.shutdown();
+        clientProxy.close();
     }
 }

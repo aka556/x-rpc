@@ -5,11 +5,18 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xiaoyu.api.annotation.Retryable;
 import org.xiaoyu.core.server.serviceRegister.ServiceRegister;
 
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ZKServiceRegister implements ServiceRegister {
+    private static final Logger log = LoggerFactory.getLogger(ZKServiceRegister.class);
     // curator 提供的zookeeper客户端
     private CuratorFramework client;
     //zookeeper根路径节点
@@ -29,9 +36,12 @@ public class ZKServiceRegister implements ServiceRegister {
         this.client.start();
         System.out.println("zookeeper 连接成功");
     }
+
     //注册服务到注册中心
     @Override
-    public void register(String serviceName, InetSocketAddress serviceAddress, boolean canRetry) {
+    public void register(Class<?> clazz, InetSocketAddress serviceAddress) {
+        String serviceName = clazz.getName();
+
         try {
             // serviceName创建成永久节点，服务提供者下线时，不删服务名，只删地址
             if(client.checkExists().forPath("/" + serviceName) == null){
@@ -39,25 +49,57 @@ public class ZKServiceRegister implements ServiceRegister {
             }
             // 路径地址，一个/代表一个节点
             String path = "/" + serviceName + "/" + getServiceAddress(serviceAddress);
-            // 临时节点，服务器下线就删除节点
-            client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(path);
-            // 如果服务是幂等性, problem -> 什么是幂等性
-            // 同一操作无论执行多少次,产生的结果都是一致的
-            // Get、Put、Delete是幂等的，而Post通常不是幂等的
-            if (canRetry) {
-                path = "/" + RETRY + "/" + serviceName;
+            if (client.checkExists().forPath(path) != null) {
                 client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(path);
+                log.info("服务地址 {} 注册成功", path);
+            } else {
+                log.info("服务地址{}已经存在，跳过注册", path);
+            }
+
+            // 注册白名单
+            List<String> retryableMethods = getRetryableMethods(clazz);
+            CuratorFramework rootClient = client.usingNamespace(ROOT_PATH);
+            for (String retryableMethod : retryableMethods) {
+                rootClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
+                        .forPath("/" + getServiceAddress(serviceAddress) + "/" + retryableMethod);
             }
         } catch (Exception e) {
-            System.out.println("此服务已存在");
+            log.error("服务注册失败，服务名：{}，错误信息：{}", serviceName, e.getMessage(), e);
         }
     }
+
     // 地址 -> XXX.XXX.XXX.XXX:port 字符串
     private String getServiceAddress(InetSocketAddress serverAddress) {
-        return serverAddress.getHostName() +
-                ":" +
-                serverAddress.getPort();
+        return serverAddress.getHostName() + ":" + serverAddress.getPort();
     }
+
+    // 判断方法是否添加了Retryable 注解
+    private List<String> getRetryableMethods(Class<?> clazz) {
+        List<String> retryableMethods = new ArrayList<>();
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (method.isAnnotationPresent(Retryable.class)) {
+                String methodSignature = getMethodSignature(clazz,  method);
+                retryableMethods.add(methodSignature);
+            }
+        }
+        return retryableMethods;
+    }
+
+    private String getMethodSignature(Class<?> clazz, Method method) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(method.getName()).append("#").append(method.getName()).append("(");
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        for (int i = 0; i < parameterTypes.length; i++) {
+            sb.append(parameterTypes[i].getName());
+            if (i < parameterTypes.length - 1) {
+                sb.append(",");
+            } else {
+                sb.append(")");
+            }
+        }
+        return sb.toString();
+    }
+
     // 字符串解析为地址
     private InetSocketAddress parseAddress(String address) {
         String[] result = address.split(":");

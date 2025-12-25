@@ -34,7 +34,7 @@ public class ServiceProvider {
 
         for (Class<?> clazz : interfaceName) {
             interfaceProvider.put(clazz.getName(), service);
-            serviceRegister.register(clazz.getName(), new InetSocketAddress(host, port), canRetry);
+            serviceRegister.register(clazz, new InetSocketAddress(host, port));
         }
     }
 

@@ -1,4 +1,4 @@
-package org.xiaoyu.customer;
+package org.xiaoyu.consumer;
 
 import org.xiaoyu.common.util.ConfigUtil;
 import org.xiaoyu.core.config.RpcConfig;
