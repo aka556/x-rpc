@@ -6,6 +6,7 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 import lombok.AllArgsConstructor;
 import org.xiaoyu.common.message.MessageType;
 import org.xiaoyu.common.serializer.gumiSerializer.Serializer;
+import org.xiaoyu.common.trace.TraceContext;
 
 import java.util.List;
 
@@ -17,6 +18,12 @@ public class Decoder extends ByteToMessageDecoder {
         if (in.readableBytes() < 8) {
             return; // messageType + serializerType + length
         }
+
+        // 读取trace message
+        int traceLength = in.readInt();
+        byte[] traceBytes = new byte[traceLength];
+        in.readBytes(traceBytes);
+        serializeTraceMsg(traceBytes);
 
         // 读取消息类型
         short messageType = in.readShort();
@@ -47,5 +54,13 @@ public class Decoder extends ByteToMessageDecoder {
         // messageType用于指定消息类型，而serializerType用于指定序列化器
         Object deserialize = serializer.deserialize(bytes, messageType);
         out.add(deserialize);
+    }
+
+    //解析并存储traceMsg
+    private void serializeTraceMsg(byte[] traceByte){
+        String traceMsg = new String(traceByte);
+        String[] msg = traceMsg.split(";");
+        if(!msg[0].isEmpty()) TraceContext.setTraceId(msg[0]);
+        if(!msg[1].isEmpty()) TraceContext.setParentSpanId(msg[1]);
     }
 }

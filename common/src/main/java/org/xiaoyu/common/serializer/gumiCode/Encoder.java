@@ -4,16 +4,20 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xiaoyu.common.message.MessageType;
 import org.xiaoyu.common.message.RpcRequest;
 import org.xiaoyu.common.message.RpcResponse;
 import org.xiaoyu.common.serializer.gumiSerializer.Serializer;
+import org.xiaoyu.common.trace.TraceContext;
 
 /**
  * MessageToByteEncoder是netty专门设计用来实现编码器得抽象类，可以帮助开发者将Java对象编码成字节数据
  */
 @AllArgsConstructor
 public class Encoder extends MessageToByteEncoder {
+    private static final Logger log = LoggerFactory.getLogger(Encoder.class);
     private Serializer serializer; // 序列化对象
 
     // netty在写出数据时会调用这个方法，将Java对象编码成二进制数据
@@ -22,7 +26,14 @@ public class Encoder extends MessageToByteEncoder {
     // 参数out 是netty提供的字节缓冲区，编码后的字节数据写入其中
     @Override
     protected void encode(ChannelHandlerContext ctx, Object message, ByteBuf byteBuf) throws Exception {
-        System.out.println(message.getClass());
+        log.debug("Encode message of type: {}", message.getClass());
+
+        // 写入trace消息头
+        String traceMsg = TraceContext.getTraceId() + ";" + TraceContext.getSpanId();
+        byte[] traceMsgBytes = traceMsg.getBytes();
+        byteBuf.writeInt(traceMsgBytes.length);
+        byteBuf.writeBytes(traceMsgBytes);
+
         // 判断消息类型
         if (message instanceof RpcRequest) {
             byteBuf.writeShort(MessageType.REQUEST.getCode());
