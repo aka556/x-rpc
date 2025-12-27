@@ -20,7 +20,7 @@ public class HeartBeatHandler extends ChannelDuplexHandler {
             IdleState idleState = idleStateEvent.state();
 
             if(idleState == IdleState.WRITER_IDLE) {
-                ctx.writeAndFlush(RpcRequest.HeartBeat());
+                ctx.writeAndFlush(RpcRequest.heartBeat());
                 log.info("超过8秒没有写数据，发送心跳包");
             }
         }else {

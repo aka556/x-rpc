@@ -24,21 +24,27 @@ public class ConsumerTest {
                 Thread.sleep(10000);
             }
 
-            new Thread(() -> {
+            executorService.submit(() -> {
                 try {
                     User user = proxy.getUserById(index);
                     if (user != null) {
                         log.info("从服务端得到的user={}", user);
+                    } else {
+                        log.warn("从服务端得到的user为null, userId={}",index);
                     }
 
                     Integer id = proxy.insertUser(User.builder().id(index)
                             .userName("User" + index).gender(true).build());
-                    log.info("向客户端插入了id为: {} 的用户", id);
+                    if (id != null) {
+                        log.info("向服务端插入user的id={}", id);
+                    } else {
+                        log.warn("插入失败，返回的id为null, userId={}", index);
+                    }
+
                 } catch (NullPointerException e) {
-                    log.info("User为空");
-                    e.printStackTrace();
+                    log.error("调用服务时发生异常，userId={}", index, e);
                 }
-            }).start();
+            });
         }
 
         executorService.shutdown();

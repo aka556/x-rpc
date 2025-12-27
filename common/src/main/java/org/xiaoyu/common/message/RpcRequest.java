@@ -19,7 +19,7 @@ public class RpcRequest implements Serializable {
     private Object[] params; // 参数对象序列
     private Class<?>[] paramsType; // 参数类型
 
-    public static RpcRequest HeartBeat() {
+    public static RpcRequest heartBeat() {
         return RpcRequest.builder().requestType(RequestType.HEARTBEAT).build();
     }
 }

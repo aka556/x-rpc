@@ -1,7 +1,11 @@
 package org.xiaoyu.core.client.proxy;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xiaoyu.common.message.RequestType;
 import org.xiaoyu.common.message.RpcRequest;
 import org.xiaoyu.common.message.RpcResponse;
+import org.xiaoyu.core.client.RpcClient.Impl.NettyRpcClient;
 import org.xiaoyu.core.client.RpcClient.RpcClient;
 import org.xiaoyu.core.client.circuitBreaker.CircuitBreakProvider;
 import org.xiaoyu.core.client.circuitBreaker.CircuitBreaker;
@@ -13,10 +17,12 @@ import org.xiaoyu.core.trace.Interceptor.ClientTraceInterceptor;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.InetSocketAddress;
 
 // 传入参数service接口的class对象，反射封装成一个request
 // RPCClientProxy类中需要加入一个RPCClient类变量即可， 传入不同的client(simple,netty), 即可调用公共的接口sendRequest发送请求
 public class ClientProxy implements InvocationHandler {
+    private static final Logger log = LoggerFactory.getLogger(ClientProxy.class);
     private RpcClient rpcClient;
     private ServiceCenter serviceCenter;
     private CircuitBreakProvider circuitBreakProvider;
@@ -33,6 +39,7 @@ public class ClientProxy implements InvocationHandler {
 
         // 构建request
         RpcRequest request = RpcRequest.builder()
+                .requestType(RequestType.NORMAL)
                 .interfaceName(method.getDeclaringClass().getName())
                 .methodName(method.getName())
                 .params(args).paramsType(method.getParameterTypes())
@@ -42,12 +49,18 @@ public class ClientProxy implements InvocationHandler {
         CircuitBreaker circuitBreaker = circuitBreakProvider.getCircuitBreaker(method.getName());
         // 判断熔断器是否允许通过
         if (!circuitBreaker.allowRequest()) {
+            log.warn("熔断器开启，请求被拒绝: {}", request);
             return null;
         }
 
         // 数据传输
         RpcResponse response;
-        if (serviceCenter.checkRetry(request.getInterfaceName())) {
+        // 根据方法签名判断是否需要重试
+        String methodSignature = getSignature(request.getInterfaceName(), method);
+        InetSocketAddress serviceAddress = serviceCenter.serviceDiscovery(request);
+        rpcClient = new NettyRpcClient(serviceAddress);
+
+        if (serviceCenter.checkRetry(serviceAddress, methodSignature)) {
             // 调用retry框架进行重试
             response = new GuavaRetry().sendServiceWithRetry(request, rpcClient);
         } else {
@@ -72,6 +85,22 @@ public class ClientProxy implements InvocationHandler {
     public <T> T getProxy(Class<T> clazz) {
         Object o = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, this);
         return (T) o;
+    }
+
+    // 根据接口名字和方法获取方法签名
+    public String getSignature(String interfaceName, Method method) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(interfaceName).append("#").append(method.getName()).append("(");
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        for (int i = 0; i < parameterTypes.length; i++) {
+            sb.append(parameterTypes[i].getName());
+            if (i < parameterTypes.length - 1) {
+                sb.append(",");
+            } else {
+                sb.append(")");
+            }
+        }
+        return sb.toString();
     }
 
     //关闭创建的资源

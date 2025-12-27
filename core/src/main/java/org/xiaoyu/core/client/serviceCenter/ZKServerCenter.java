@@ -4,14 +4,20 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xiaoyu.common.message.RpcRequest;
 import org.xiaoyu.core.client.cache.ServiceCache;
 import org.xiaoyu.core.client.serviceCenter.ZKWatcher.Watcher;
 import org.xiaoyu.core.client.serviceCenter.balance.Impl.ConsistencyHashLoadBalance;
 
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 public class ZKServerCenter implements ServiceCenter {
+    private static final Logger log = LoggerFactory.getLogger(ZKServerCenter.class);
     // curator提供的zookeeper客户端
     private CuratorFramework client;
     // zookeeper根路径节点
@@ -43,37 +49,51 @@ public class ZKServerCenter implements ServiceCenter {
     }
 
     @Override
-    public InetSocketAddress serviceDiscovery(String serviceName) {
+    public InetSocketAddress serviceDiscovery(RpcRequest request) {
+        String serviceName = request.getInterfaceName();
         try {
             // 先从本地缓存中查找服务
             List<String> serviceList = cache.getServiceFromCache(serviceName);
             if (serviceList == null) {
                 serviceList = client.getChildren().forPath("/" + serviceName);
+                List<String> cachedAddress = cache.getServiceFromCache(serviceName);
+                if (cachedAddress == null || cachedAddress.isEmpty()) {
+                    for (String address : serviceList) {
+                        cache.addServiceToCache(serviceName, address);
+                    }
+                }
             }
+
+            if (serviceList.isEmpty()) {
+                log.error("没有可用的服务提供者，服务名：{}", serviceName);
+                return null;
+            }
+            // 负载均衡得到地址
             String address = new ConsistencyHashLoadBalance().balance(serviceList);
             return parseAddress(address);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("服务发现失败，服务名：{}，错误信息：{}", serviceName, e.getMessage(), e);
         }
         return null;
     }
 
+    // 使用线程安全的集合
+    private Set<String> retryServiceCache = new CopyOnWriteArraySet<String>();
+
+    // 使用白名单缓存，节省开销
     @Override
-    public boolean checkRetry(String serviceName) {
-        boolean canResty = false;
-        try {
-            List<String> serviceList = client.getChildren().forPath("/" + RETRY);
-            for(String s : serviceList) {
-                if(s.equals(serviceName)) {
-                    System.out.println("服务" + serviceName + "在白名单中，可以重试");
-                    canResty = true;
-                    break;
-                }
+    public boolean checkRetry(InetSocketAddress serviceAddress, String methodSignature) {
+        if (retryServiceCache.isEmpty()) {
+            try {
+                CuratorFramework rootClient = client.usingNamespace(RETRY);
+                List<String> retryableMethods = rootClient.getChildren().forPath("/" + getServiceAddress(serviceAddress));
+                retryServiceCache.addAll(retryableMethods);
+            } catch (Exception e) {
+                log.error("检查重试失败， 方法签名: {}", methodSignature, e);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+
         }
-        return canResty;
+        return retryServiceCache.contains(methodSignature);
     }
 
     @Override

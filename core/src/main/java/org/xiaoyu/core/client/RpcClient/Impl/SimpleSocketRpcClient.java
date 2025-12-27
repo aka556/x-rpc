@@ -34,4 +34,9 @@ public class SimpleSocketRpcClient implements RpcClient {
             return null;
         }
     }
+
+    @Override
+    public void close() {
+
+    }
 }
