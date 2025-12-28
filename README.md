@@ -132,7 +132,7 @@ public class ConsumerTest {
 RPC框架支持以下配置项：
 
 - `name`: 服务名称，默认为"rpc"
-- `port`: 服务端口，默认为9999
+- `port`: 服务端口，默认为9998
 - `host`: 主机地址，默认为"localhost"
 - `version`: 服务版本，默认为"1.0.0"
 - `registry`: 注册中心，默认使用Zookeeper
