@@ -7,6 +7,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.AttributeKey;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xiaoyu.common.message.RpcRequest;
@@ -21,15 +22,15 @@ import org.xiaoyu.core.client.serviceCenter.ZKServerCenter;
 import java.net.InetSocketAddress;
 import java.util.Map;
 
+@Slf4j
 public class NettyRpcClient implements RpcClient {
     private static final Bootstrap bootstrap; // netty用户启动客户端的对象
     private static final EventLoopGroup eventLoopGroup; // netty的线程池，用于处理I/O操作
-    private static final Logger log = LoggerFactory.getLogger(NettyRpcClient.class);
 
     private final InetSocketAddress address;
 
-    public NettyRpcClient(InetSocketAddress address) {
-        this.address = address;
+    public NettyRpcClient(InetSocketAddress serviceAddress) {
+        this.address = serviceAddress;
     }
 
     // 客户端初始化
@@ -84,6 +85,8 @@ public class NettyRpcClient implements RpcClient {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.error("发送请求失败: {}", e.getMessage(), e);
+        } finally {
+
         }
         return RpcResponse.fail("请求失败");
     }

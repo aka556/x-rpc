@@ -11,10 +11,10 @@ public class ClientTraceInterceptor {
     public static void beforeInvoke() {
         String traceId = TraceContext.getTraceId();
         if (traceId == null) {
-            traceId = TraceIdGenerator.TraceGenerator();
+            traceId = TraceIdGenerator.generateTraceId();
             TraceContext.setTraceId(traceId);
         }
-        String spanId = TraceContext.getSpanId();
+        String spanId = TraceIdGenerator.generateSpanId();
         TraceContext.setSpanId(spanId);
 
         // 记录客户端span
@@ -23,8 +23,8 @@ public class ClientTraceInterceptor {
     }
 
     public static void afterInvoke(String serviceName) {
-        long startTimeStamp = System.currentTimeMillis();
-        long endTimeStamp = Long.parseLong(TraceContext.getStartTimeStamp());
+        long startTimeStamp = Long.parseLong(TraceContext.getStartTimeStamp());
+        long endTimeStamp = System.currentTimeMillis();
         long duration = endTimeStamp - startTimeStamp;
 
         // 上报span信息
@@ -32,7 +32,7 @@ public class ClientTraceInterceptor {
                 TraceContext.getTraceId(),
                 TraceContext.getSpanId(),
                 TraceContext.getParentSpanId(),
-                "Client--" + serviceName,
+                "Client-" + serviceName,
                 startTimeStamp,
                 duration,
                 serviceName,

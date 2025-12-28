@@ -12,7 +12,7 @@ import zipkin2.reporter.okhttp3.OkHttpSender;
 @Slf4j
 public class ZipkinReporter {
     private static final String ZIPKIN_URL = "http://localhost:9411/api/v2/spans";
-    private static AsyncReporter<Span> reporter;
+    private static final AsyncReporter<Span> reporter;
 
     static {
         // 初始化zipkin上报器
@@ -38,7 +38,7 @@ public class ZipkinReporter {
                 .build();
 
         reporter.report(span);
-        log.info("当前traceId{}——上报信息", traceId);
+        log.info("当前traceId{}——正在上报信息", traceId);
     }
 
     // 关闭

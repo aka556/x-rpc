@@ -1,5 +1,6 @@
 package org.xiaoyu.core.client.serviceCenter;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
@@ -16,8 +17,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+@Slf4j
 public class ZKServerCenter implements ServiceCenter {
-    private static final Logger log = LoggerFactory.getLogger(ZKServerCenter.class);
     // curator提供的zookeeper客户端
     private CuratorFramework client;
     // zookeeper根路径节点

@@ -31,6 +31,7 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
         // 心跳检测
         if (request.getRequestType() == RequestType.HEARTBEAT) {
             log.info("接收到来自客户端的心跳包");
+            return;
         }
 
         if (request.getRequestType() == RequestType.NORMAL) {
@@ -43,7 +44,6 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
             ServerTraceInterceptor.afterHandle(request.getMethodName());
             ctx.writeAndFlush(response);
         }
-        ctx.close();
     }
 
     @Override
@@ -65,7 +65,7 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
         // 获取服务实现类
         Object service = serviceProvider.getService(interfaceName);
         // 反射调用
-        Method method = null;
+        Method method;
         try {
             method = service.getClass().getMethod(rpcRequest.getMethodName(), rpcRequest.getParamsType());
             Object invoke = method.invoke(service,rpcRequest.getParams());

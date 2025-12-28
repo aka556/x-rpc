@@ -4,12 +4,13 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.xiaoyu.common.message.MessageType;
 import org.xiaoyu.common.serializer.gumiSerializer.Serializer;
 import org.xiaoyu.common.trace.TraceContext;
 
 import java.util.List;
-
+@Slf4j
 @AllArgsConstructor
 public class Decoder extends ByteToMessageDecoder {
     @Override
@@ -29,7 +30,7 @@ public class Decoder extends ByteToMessageDecoder {
         short messageType = in.readShort();
         // 判断类型
         if (messageType != MessageType.REQUEST.getCode() && messageType != MessageType.RESPONSE.getCode()) {
-            System.out.println("暂不支持该消息类型");
+            log.info("暂不支持该消息类型");
             return;
         }
 

@@ -18,7 +18,7 @@ public class RpcConfig {
     // 名称
     private String name = "rpc";
     // 端口
-    private int port = 9999;
+    private int port = 9998;
     // 主机名
     private String host = "localhost";
     // 版本号

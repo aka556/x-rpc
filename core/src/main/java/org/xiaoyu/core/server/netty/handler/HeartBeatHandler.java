@@ -14,7 +14,7 @@ public class HeartBeatHandler extends ChannelDuplexHandler {
         try {
             if (evt instanceof IdleStateEvent) {
                 IdleStateEvent idleStateEvent = (IdleStateEvent) evt;
-                IdleState idleState = idleStateEvent.state();
+                IdleState idleState = ((IdleStateEvent) evt).state();
 
                 // 如果读空闲，则发送心跳包
                 if (idleState == IdleState.READER_IDLE) {
@@ -25,7 +25,6 @@ public class HeartBeatHandler extends ChannelDuplexHandler {
                     ctx.close();
                 }
             }
-            super.channelRead(ctx, evt);
         } catch (Exception e) {
             log.error("服务端处理心跳异常", e);
         }

@@ -28,7 +28,7 @@ public class ServiceProvider {
     }
 
     // 本地服务
-    public void provideServiceInterface(Object service, boolean canRetry) {
+    public void provideServiceInterface(Object service) {
         String serviceName = service.getClass().getName();
         Class<?>[] interfaceName = service.getClass().getInterfaces();
 

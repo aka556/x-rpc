@@ -1,5 +1,6 @@
 package org.xiaoyu.core.client.proxy;
 
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xiaoyu.common.message.RequestType;
@@ -21,8 +22,8 @@ import java.net.InetSocketAddress;
 
 // 传入参数service接口的class对象，反射封装成一个request
 // RPCClientProxy类中需要加入一个RPCClient类变量即可， 传入不同的client(simple,netty), 即可调用公共的接口sendRequest发送请求
+@Slf4j
 public class ClientProxy implements InvocationHandler {
-    private static final Logger log = LoggerFactory.getLogger(ClientProxy.class);
     private RpcClient rpcClient;
     private ServiceCenter serviceCenter;
     private CircuitBreakProvider circuitBreakProvider;
@@ -61,25 +62,34 @@ public class ClientProxy implements InvocationHandler {
         rpcClient = new NettyRpcClient(serviceAddress);
 
         if (serviceCenter.checkRetry(serviceAddress, methodSignature)) {
-            // 调用retry框架进行重试
-            response = new GuavaRetry().sendServiceWithRetry(request, rpcClient);
+            try {
+                log.info("使用重试机制调用服务: {}", methodSignature);
+                // 调用retry框架进行重试
+                response = new GuavaRetry().sendServiceWithRetry(request, rpcClient);
+            } catch (Exception e) {
+                log.error("重试失败，方法签名: {}", methodSignature, e);
+                circuitBreaker.recordFailure();
+                throw e;
+            }
         } else {
             // 不需要重试，只调用一次
             response = rpcClient.sendRequest(request);
         }
 
-        // 记录response状态
-        if (response.getCode() == 200) {
-            circuitBreaker.recordSuccess();
-        }
-        if (response.getCode() == 500) {
-            circuitBreaker.recordFailure();
+        if (response != null) {
+            // 记录response状态
+            if (response.getCode() == 200) {
+                circuitBreaker.recordSuccess();
+            } else if (response.getCode() == 500) {
+                circuitBreaker.recordFailure();
+            }
+            log.info("收到响应: {} 状态码: {}", request.getInterfaceName(), response.getCode());
         }
 
         // trace上报
         ClientTraceInterceptor.afterInvoke(method.getName());
 
-        return response.getData();
+        return response != null ? response.getData() : null;
     }
 
     public <T> T getProxy(Class<T> clazz) {

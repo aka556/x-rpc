@@ -7,7 +7,6 @@ import io.netty.handler.timeout.IdleStateHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.xiaoyu.common.serializer.gumiCode.Decoder;
 import org.xiaoyu.common.serializer.gumiCode.Encoder;
-import org.xiaoyu.common.serializer.gumiSerializer.JsonSerializer;
 import org.xiaoyu.common.serializer.gumiSerializer.Serializer;
 import org.xiaoyu.core.client.netty.handler.HeartBeatHandler;
 import org.xiaoyu.core.client.netty.handler.MDCChannelHandler;

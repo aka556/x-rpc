@@ -19,7 +19,7 @@ public class ProviderTest {
         UserService userService = new UserServiceImpl();
         ServiceProvider serviceProvider = new ServiceProvider(ip, port);
         // 发布服务器接口到服务中心
-        serviceProvider.provideServiceInterface(userService, true);
+        serviceProvider.provideServiceInterface(userService);
 
         // 启动服务
         RpcServer rpcServer = new NettyRpcServer(serviceProvider);

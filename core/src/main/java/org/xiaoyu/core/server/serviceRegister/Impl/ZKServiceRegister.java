@@ -1,12 +1,11 @@
 package org.xiaoyu.core.server.serviceRegister.Impl;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.xiaoyu.api.annotation.Retryable;
 import org.xiaoyu.core.server.serviceRegister.ServiceRegister;
 
@@ -15,8 +14,8 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class ZKServiceRegister implements ServiceRegister {
-    private static final Logger log = LoggerFactory.getLogger(ZKServiceRegister.class);
     // curator 提供的zookeeper客户端
     private CuratorFramework client;
     //zookeeper根路径节点
@@ -49,7 +48,8 @@ public class ZKServiceRegister implements ServiceRegister {
             }
             // 路径地址，一个/代表一个节点
             String path = "/" + serviceName + "/" + getServiceAddress(serviceAddress);
-            if (client.checkExists().forPath(path) != null) {
+            // 修复：如果路径不存在，才创建临时节点
+            if (client.checkExists().forPath(path) == null) {
                 client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(path);
                 log.info("服务地址 {} 注册成功", path);
             } else {
@@ -58,10 +58,13 @@ public class ZKServiceRegister implements ServiceRegister {
 
             // 注册白名单
             List<String> retryableMethods = getRetryableMethods(clazz);
-            CuratorFramework rootClient = client.usingNamespace(ROOT_PATH);
+            CuratorFramework rootClient = client.usingNamespace(RETRY);
             for (String retryableMethod : retryableMethods) {
-                rootClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
-                        .forPath("/" + getServiceAddress(serviceAddress) + "/" + retryableMethod);
+                String methodPath = "/" + getServiceAddress(serviceAddress) + "/" + retryableMethod;
+                if (rootClient.checkExists().forPath(methodPath) == null) {
+                    rootClient.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL)
+                            .forPath(methodPath);
+                }
             }
         } catch (Exception e) {
             log.error("服务注册失败，服务名：{}，错误信息：{}", serviceName, e.getMessage(), e);

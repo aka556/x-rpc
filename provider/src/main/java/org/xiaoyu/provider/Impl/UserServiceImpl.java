@@ -11,19 +11,19 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService {
     @Override
     public User getUserById(Integer id) {
-        log.info("客户端查询了id为: " + id + " 的用户");
+        log.info("客户端查询了id为: {} 的用户", id);
         Random random = new Random();
         User user =  User.builder().id(id)
                 .userName(UUID.randomUUID().toString())
                 .gender(random.nextBoolean())
                 .build();
-        log.info(("返回用户信息: { }" + user));
+        log.info("返回用户信息: {}", user);
         return user;
     }
 
     @Override
     public Integer insertUser(User user) {
-        log.info("插入数据成功"+user.getUserName());
+        log.info("插入数据成功{}", user.getUserName());
         return user.getId();
     }
 }

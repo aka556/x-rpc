@@ -9,8 +9,12 @@ public class TraceIdGenerator {
     private static final long WORKER_ID = 0;
     private static final SnowflakeGenerator SNOWFLAKE = new SnowflakeGenerator(WORKER_ID);
 
-    public static String TraceGenerator() {
+    public static String generateTraceId() {
         return Long.toHexString(SNOWFLAKE.nextId());
+    }
+
+    public static String generateSpanId() {
+        return String.valueOf(System.currentTimeMillis());
     }
 
     static class SnowflakeGenerator {
