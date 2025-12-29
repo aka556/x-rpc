@@ -1,55 +1,17 @@
 # x-rpc
+基于Netty+Zookeeper实现的RPC框架
 
-x-rpc 是一个轻量级的远程过程调用（RPC）框架，用于实现分布式系统中的服务调用。该项目基于Java开发，使用Netty作为网络通信框架，并集成了多种序列化方式、负载均衡策略和注册中心。
+## 项目介绍
 
-## 项目特点
-
-- **高性能**：基于Netty实现异步非阻塞网络通信
-- **多种序列化支持**：支持JDK原生序列化、JSON、Kryo、Hessian、Protostuff等多种序列化方式
-- **负载均衡**：支持随机、轮询和一致性哈希等负载均衡策略
-- **服务注册与发现**：集成Zookeeper作为服务注册中心
-- **容错机制**：包含熔断器、重试机制等容错策略
-- **分布式追踪**：支持分布式链路追踪功能
-
-## 项目架构
-
-x-rpc项目采用模块化设计，主要包含以下模块：
-
-### 1. api模块
-定义了服务接口和数据传输对象（DTO），为服务提供者和消费者提供统一的接口规范。
-
-### 2. common模块
-包含项目中通用的工具类、异常处理、消息定义和序列化器等基础组件。
-
-### 3. core模块
-RPC框架的核心实现，包括：
-- 客户端和服务端的实现
-- 代理机制
-- 负载均衡算法
-- 服务注册与发现
-- 熔断器和限流器
-- 网络通信处理
-
-### 4. consumer模块
-服务消费者，通过代理机制调用远程服务。
-
-### 5. provider模块
-服务提供者，实现具体的服务接口并对外提供服务。
+x-rpc是一个基于Netty和Zookeeper实现的RPC框架，提供了服务注册发现、负载均衡、容错机制等功能。
 
 ## 核心功能
-
-### 序列化支持
-框架支持多种序列化方式：
-- JDK原生序列化（ObjectSerializer）
-- JSON序列化（JsonSerializer）
-- Kryo序列化（KryoSerializer）
-- Hessian序列化（HessianSerializer）
-- Protostuff序列化（ProtostuffSerializer）
 
 ### 负载均衡策略
 - 随机负载均衡（RandomLoadBalance）
 - 轮询负载均衡（RoundLoadBalance）
 - 一致性哈希负载均衡（ConsistencyHashLoadBalance）
+- 最近最久未使用（LRU）负载均衡（LRULoadBalance）
 
 ### 服务注册与发现
 使用Zookeeper作为服务注册中心，实现服务的动态注册与发现。
@@ -58,6 +20,7 @@ RPC框架的核心实现，包括：
 - **重试机制**：通过`@Retryable`注解标识需要重试的方法
 - **熔断器**：防止服务雪崩
 - **限流器**：控制服务访问频率
+- **故障降级**：在服务异常时提供降级响应，保证系统稳定性
 
 ### 网络通信
 - 基于Netty实现高效的网络通信
@@ -114,58 +77,43 @@ public class ProviderTest {
 }
 ```
 
-### 4. 调用远程服务
+### 4. 启动服务消费者
 ```java
 public class ConsumerTest {
     public static void main(String[] args) {
-        ClientProxy clientProxy = new ClientProxy();
-        UserService proxy = clientProxy.getProxy(UserService.class);
+        RpcApplication.initialize();
 
-        User user = proxy.getUserById(1);
-        log.info("从服务端得到的user={}", user);
+        // 获取代理对象
+        ClientProxyFactory factory = new ClientProxyFactory();
+        UserService userService = factory.getProxy(UserService.class);
+
+        // 调用远程方法
+        User user = userService.getUserById(1);
+        System.out.println(user);
     }
 }
 ```
 
-## 配置说明
+## 模块说明
 
-RPC框架支持以下配置项：
-
-- `name`: 服务名称，默认为"rpc"
-- `port`: 服务端口，默认为9998
-- `host`: 主机地址，默认为"localhost"
-- `version`: 服务版本，默认为"1.0.0"
-- `registry`: 注册中心，默认使用Zookeeper
-- `serializer`: 序列化器，默认使用Hessian
-- `balance`: 负载均衡策略，默认使用一致性哈希
+- **api**：定义服务接口和数据传输对象
+- **common**：提供通用组件，如序列化器、异常处理、SPI加载等
+- **core**：核心功能实现，包括客户端/服务端、代理、负载均衡、熔断等
+- **provider**：服务提供者实现
+- **consumer**：服务消费者实现
 
 ## 技术栈
 
-- Java 17
-- Netty 4.1.51.Final
-- Zookeeper
-- Spring Boot
-- Maven
-- Lombok
-- Hutool
-- Kryo
-- Hessian
-- Protostuff
+- **网络通信**：Netty
+- **服务注册中心**：Zookeeper
+- **序列化**：Hessian、Kryo、Protostuff、JSON等
+- **负载均衡**：随机、轮询、一致性哈希、LRU
+- **容错机制**：重试、熔断、限流、故障降级
 
-## 项目启动
+## 特性
 
-1. 启动Zookeeper服务
-2. 运行ProviderTest启动服务提供者
-3. 运行ConsumerTest启动服务消费者
-
-## 扩展性
-
-x-rpc框架设计具有良好的扩展性，可以通过SPI机制轻松扩展：
-- 新增序列化方式
-- 实现新的负载均衡策略
-- 集成其他注册中心
-- 添加新的网络通信协议
-
-## 许可证
-
-本项目采用MIT许可证。
+- 支持多种序列化方式
+- 支持多种负载均衡策略
+- 完善的容错机制
+- 分布式服务注册发现
+- 高性能网络通信
